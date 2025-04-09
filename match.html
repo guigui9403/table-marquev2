@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Feuille de Match Interactive</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .chrono { font-size: 3em; text-align: center; margin-bottom: 20px; }
+    .actions { text-align: center; margin-bottom: 20px; }
+    .actions button { font-size: 1em; padding: 10px; margin: 4px; }
+    .history { background: #f2f2f2; padding: 10px; max-height: 200px; overflow-y: auto; }
+  </style>
+</head>
+<body>
+  <div class="chrono" id="chrono">00:00</div>
+  <div class="actions">
+    <button onclick="logAction('BUT')">BUT</button>
+    <button onclick="logAction('2 MIN')">2 MIN</button>
+    <button onclick="logAction('TME')">TME</button>
+  </div>
+  <div class="history" id="historique"></div>
+
+  <script>
+    let time = 0;
+    let chrono = document.getElementById("chrono");
+    setInterval(() => {
+      time++;
+      const min = String(Math.floor(time / 60)).padStart(2, '0');
+      const sec = String(time % 60).padStart(2, '0');
+      chrono.textContent = min + ":" + sec;
+    }, 1000);
+
+    function logAction(action) {
+      const log = document.createElement("div");
+      log.textContent = "[" + chrono.textContent + "] " + action;
+      document.getElementById("historique").prepend(log);
+    }
+  </script>
+</body>
+</html>
