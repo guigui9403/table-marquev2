@@ -1,0 +1,243 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Feuille de Match</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f0f0f0;
+    }
+    .header {
+      text-align: center;
+      background: #ddd;
+      padding: 10px;
+      font-size: 2em;
+      font-weight: bold;
+    }
+    .controls {
+      text-align: center;
+      padding: 10px;
+    }
+    .controls button {
+      margin: 4px;
+      padding: 8px 12px;
+      font-size: 1em;
+      border: none;
+      border-radius: 8px;
+      background: #3498db;
+      color: white;
+    }
+    .teams {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px;
+    }
+    .team-column {
+      width: 48%;
+    }
+    .players-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .player-card {
+      background: white;
+      border-radius: 8px;
+      padding: 10px;
+      box-shadow: 1px 1px 4px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    .selected {
+      outline: 3px solid green;
+    }
+    .sanctions {
+      margin-top: 6px;
+    }
+    .sanction {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin: 2px;
+      border-radius: 3px;
+      border: 1px solid #333;
+    }
+    .jaune { background: yellow; }
+    .rouge { background: red; }
+    .bleu { background: blue; }
+    .deuxmin { background: #87CEFA; }
+    .buts {
+      font-size: 0.85em;
+      margin-top: 4px;
+    }
+    #historique {
+      padding: 10px;
+      margin: 10px;
+      background: white;
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 0.9em;
+    }
+    .footer {
+      text-align: center;
+      padding: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div id="main-chrono">00:00</div>
+  <div class="controls">
+    <button onclick="adjustChrono(60)">+1 min</button>
+    <button onclick="adjustChrono(-60)">-1 min</button>
+    <button onclick="adjustChrono(10)">+10 sec</button>
+    <button onclick="adjustChrono(-10)">-10 sec</button>
+    <button onclick="toggleMainChrono()">▶️ Play / Pause</button>
+    <button onclick="startTME()">🛑 TME</button>
+  </div>
+  <div class="controls">
+    <button onclick="logAction('BUT')">BUT</button>
+    <button onclick="logAction('2 MIN')">2 MIN</button>
+    <button onclick="logAction('JAUNE')">JAUNE</button>
+    <button onclick="logAction('ROUGE')">ROUGE</button>
+    <button onclick="logAction('BLEU')">BLEU</button>
+    <button onclick="undoLast()">Annuler</button>
+  </div>
+</div>
+
+<div class="teams">
+  <div class="team-column">
+    <h3>Équipe A</h3>
+    <div class="players-grid" id="playersA"></div>
+    <div class="players-grid" id="officialsA"></div>
+  </div>
+  <div class="team-column">
+    <h3>Équipe B</h3>
+    <div class="players-grid" id="playersB"></div>
+    <div class="players-grid" id="officialsB"></div>
+  </div>
+</div>
+
+<div id="historique"></div>
+
+<div class="footer">
+  <a href="index.html"><button>🏠 Retour à l'accueil</button></a>
+  <button onclick="exportPDF()">📄 Exporter en PDF</button>
+</div>
+
+<script>
+let mainTime = 0;
+let interval = null;
+let running = false;
+let selectedPlayer = null;
+let lastAction = null;
+
+function formatTime(t) {
+  const min = String(Math.floor(t / 60)).padStart(2, '0');
+  const sec = String(t % 60).padStart(2, '0');
+  return min + ":" + sec;
+}
+
+function updateChrono() {
+  document.getElementById("main-chrono").textContent = formatTime(mainTime);
+}
+
+function toggleMainChrono() {
+  running = !running;
+  if (running) {
+    interval = setInterval(() => {
+      mainTime++;
+      updateChrono();
+    }, 1000);
+  } else {
+    clearInterval(interval);
+  }
+}
+
+function adjustChrono(s) {
+  mainTime = Math.max(0, mainTime + s);
+  updateChrono();
+}
+
+function startTME() {
+  const team = prompt("Équipe pour le TME (A ou B)").toUpperCase();
+  if (!["A", "B"].includes(team)) return;
+  alert("TME équipe " + team + " lancé pour 60 secondes !");
+}
+
+function logAction(type) {
+  if (!selectedPlayer) return;
+  const h = document.getElementById("historique");
+  const time = formatTime(mainTime);
+  const num = selectedPlayer.dataset.num;
+  const nom = selectedPlayer.dataset.nom;
+  const equipe = selectedPlayer.dataset.equipe;
+  const line = document.createElement("div");
+  line.textContent = `[${time}] ${type} - #${num} ${nom} (${equipe})`;
+  h.prepend(line);
+  lastAction = line;
+
+  if (type === "BUT") {
+    const buts = selectedPlayer.querySelector('.buts');
+    const count = parseInt(buts.dataset.count || "0") + 1;
+    buts.dataset.count = count;
+    buts.textContent = "Buts : " + count;
+  }
+}
+
+function undoLast() {
+  if (lastAction) {
+    lastAction.remove();
+    lastAction = null;
+  }
+}
+
+function exportPDF() {
+  html2pdf().from(document.body).save();
+}
+
+function chargerCompo() {
+  ["A", "B"].forEach(eq => {
+    ["joueur", "officiel"].forEach(type => {
+      const data = JSON.parse(localStorage.getItem(`compo_${eq}_${type}`) || "[]");
+      const container = document.getElementById((type === "joueur" ? "players" : "officials") + eq);
+      container.innerHTML = "";
+      data.forEach(p => {
+        const div = document.createElement("div");
+        div.className = "player-card";
+        div.dataset.num = p.numero;
+        div.dataset.nom = p.nom;
+        div.dataset.equipe = eq;
+        div.innerHTML = `<strong>#${p.numero}</strong><br>${p.nom}
+        <div class="sanctions">
+          <div class="sanction jaune"></div>
+          <div class="sanction deuxmin"></div>
+          <div class="sanction deuxmin"></div>
+          <div class="sanction deuxmin"></div>
+          <div class="sanction rouge"></div>
+          <div class="sanction bleu"></div>
+        </div>
+        <div class="buts" data-count="0">Buts : 0</div>`;
+        div.onclick = () => {
+          if (selectedPlayer) selectedPlayer.classList.remove("selected");
+          selectedPlayer = div;
+          div.classList.add("selected");
+        };
+        container.appendChild(div);
+      });
+    });
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  updateChrono();
+  chargerCompo();
+});
+</script>
+</body>
+</html>
