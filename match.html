@@ -1,0 +1,415 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Match - Interface Grille</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js">
+  function afficherMessageSiVide() {
+    const count = (
+      JSON.parse(localStorage.getItem('compo_A_joueur') || '[]').length +
+      JSON.parse(localStorage.getItem('compo_A_officiel') || '[]').length +
+      JSON.parse(localStorage.getItem('compo_B_joueur') || '[]').length +
+      JSON.parse(localStorage.getItem('compo_B_officiel') || '[]').length
+    );
+    if (count === 0) {
+      const message = document.createElement('div');
+      message.style.textAlign = 'center';
+      message.style.marginTop = '20px';
+      message.style.fontSize = '1.2em';
+      message.style.color = 'red';
+      message.textContent = 'Aucune donnée à afficher. Veuillez remplir la composition des équipes.';
+      document.body.appendChild(message);
+    }
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    chargerCompo();
+    afficherMessageSiVide();
+  });
+</script>
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; background: #f0f0f0; }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 20px;
+      background: #fff;
+      border-bottom: 1px solid #ccc;
+    }
+    .team-info {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-weight: bold;
+    }
+    .central-box {
+      background: #e0e0e0;
+      padding: 10px;
+      text-align: center;
+      border-radius: 8px;
+    }
+    .chrono-main {
+      font-size: 2.4em;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    .actions button {
+      margin: 2px;
+      padding: 8px 12px;
+      font-size: 0.9em;
+    }
+    .middle {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px;
+    }
+    .team-column {
+      width: 48%;
+    }
+    .players-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .player-card {
+      background: white;
+      padding: 6px;
+      border-radius: 6px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      text-align: center;
+      width: 120px;
+      height: auto;
+    }
+    .officials-row {
+      display: flex;
+      justify-content: space-around;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .history {
+      margin: 10px;
+      background: #fff;
+      padding: 10px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 0.9em;
+      border-top: 1px solid #ccc;
+    }
+    .sanctions {
+      display: flex;
+      justify-content: center;
+      gap: 4px;
+      margin-top: 4px;
+    }
+    .sanction {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .sanction.jaune { background: yellow; border: 1px solid black; }
+    .sanction.rouge { background: red; }
+    .sanction.bleu { background: #0066ff; }
+    .sanction.deuxmin { background: #b3daff; border: 1px solid #3399ff; }
+    .chrono2min {
+      font-size: 0.75em;
+      font-weight: bold;
+      margin-top: 2px;
+      color: #003366;
+      display: none;
+    }
+    .player-card.disabled {
+      background: #dcdcdc !important;
+    }
+    .buts {
+      font-size: 0.85em;
+      font-weight: bold;
+      margin-top: 4px;
+      background: #eaeaea;
+      padding: 2px 6px;
+      border-radius: 6px;
+      display: inline-block;
+    }
+    #undoButton, #exportPDF {
+      margin: 10px;
+      padding: 6px 10px;
+      background-color: #ccc;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .player-card.selected {
+      outline: 3px solid #4CAF50;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+  <div class="team-info">
+    <div>Équipe A</div>
+    <button onclick="useTME('A')">TME</button>
+    <div id="scoreA">0</div>
+  </div>
+  <div class="central-box">
+    <div class="chrono-main" id="main-chrono">00:00</div>
+    <button onclick="toggleMainChrono()">▶️ Start / Pause</button>
+    <div class="actions">
+      <button onclick="logAction('BUT')">BUT</button>
+      <button onclick="logAction('7M')">7M</button>
+      <button onclick="logAction('TIR')">TIR</button>
+      <button onclick="logAction('ARRÊT')">ARRÊT</button>
+      <button onclick="logAction('AV.')">AV.</button>
+      <button onclick="logAction('2 MIN')">2 MIN</button>
+      <button onclick="logAction('DISQ.')">DISQ.</button>
+      <button onclick="logAction('BLEU')">BLEU</button>
+    </div>
+  </div>
+  <div class="team-info">
+    <div>Équipe B</div>
+    <button onclick="useTME('B')">TME</button>
+    <div id="scoreB">0</div>
+  </div>
+</div>
+<div class="middle">
+    <div class="team-column" id="teamA">
+      <h3>Équipe A</h3>
+      <div class="players-grid" id="playersA"></div>
+      <div class="officials-row" id="officialsA"></div>
+    </div>
+    <div class="team-column" id="teamB">
+      <h3>Équipe B</h3>
+      <div class="players-grid" id="playersB"></div>
+      <div class="officials-row" id="officialsB"></div>
+    </div>
+  </div>
+  <!-- Le contenu complet du fichier match.html modifié devrait être ici -->
+  <button id="undoButton" onclick="undoLastAction()">Annuler la dernière action</button>
+  <button id="exportPDF">Exporter en PDF</button>
+  <div class="history" id="historique"></div>
+
+  <script>
+    document.getElementById("exportPDF").addEventListener("click", () => {
+      const content = document.body.cloneNode(true);
+      const removeButtons = content.querySelectorAll('button');
+      removeButtons.forEach(btn => btn.remove());
+
+      const opt = {
+        margin: 0.5,
+        filename: 'feuille_de_match.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+      };
+      html2pdf().set(opt).from(content).save();
+    });
+  
+  function afficherMessageSiVide() {
+    const count = (
+      JSON.parse(localStorage.getItem('compo_A_joueur') || '[]').length +
+      JSON.parse(localStorage.getItem('compo_A_officiel') || '[]').length +
+      JSON.parse(localStorage.getItem('compo_B_joueur') || '[]').length +
+      JSON.parse(localStorage.getItem('compo_B_officiel') || '[]').length
+    );
+    if (count === 0) {
+      const message = document.createElement('div');
+      message.style.textAlign = 'center';
+      message.style.marginTop = '20px';
+      message.style.fontSize = '1.2em';
+      message.style.color = 'red';
+      message.textContent = 'Aucune donnée à afficher. Veuillez remplir la composition des équipes.';
+      document.body.appendChild(message);
+    }
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    chargerCompo();
+    afficherMessageSiVide();
+  });
+</script>
+
+<script>
+  // Charger joueurs et officiels depuis localStorage
+  function chargerCompo() {
+    const equipes = ['A', 'B'];
+    equipes.forEach(equipe => {
+      ['joueur', 'officiel'].forEach(type => {
+        const cle = `compo_${equipe}_${type}`;
+        const data = JSON.parse(localStorage.getItem(cle) || '[]');
+        const containerId = type === 'joueur' ? `players${equipe}` : `officials${equipe}`;
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        data.forEach(joueur => {
+          const div = document.createElement('div');
+          div.className = 'player-card';
+          div.innerHTML = `<strong>#${joueur.numero}</strong><br>${joueur.nom}
+            <div class="sanctions">
+              <div class="sanction jaune"></div>
+              <div class="sanction deuxmin" data-index="1"></div>
+              <div class="sanction deuxmin" data-index="2"></div>
+              <div class="sanction deuxmin" data-index="3"></div>
+              <div class="sanction rouge"></div>
+              <div class="sanction bleu"></div>
+            </div>
+            <div class="chrono2min">2:00</div>
+            <div class="buts">Buts : 0</div>`;
+          container.appendChild(div);
+        });
+      });
+    });
+  }
+
+  window.addEventListener('DOMContentLoaded', chargerCompo);
+
+  function afficherMessageSiVide() {
+    const count = (
+      JSON.parse(localStorage.getItem('compo_A_joueur') || '[]').length +
+      JSON.parse(localStorage.getItem('compo_A_officiel') || '[]').length +
+      JSON.parse(localStorage.getItem('compo_B_joueur') || '[]').length +
+      JSON.parse(localStorage.getItem('compo_B_officiel') || '[]').length
+    );
+    if (count === 0) {
+      const message = document.createElement('div');
+      message.style.textAlign = 'center';
+      message.style.marginTop = '20px';
+      message.style.fontSize = '1.2em';
+      message.style.color = 'red';
+      message.textContent = 'Aucune donnée à afficher. Veuillez remplir la composition des équipes.';
+      document.body.appendChild(message);
+    }
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    chargerCompo();
+    afficherMessageSiVide();
+  });
+</script>
+
+<script>
+let mainTime = 0;
+let mainRunning = false;
+let mainInterval = null;
+let tmeCount = { A: 0, B: 0 };
+let selectedPlayer = null;
+let lastAction = null;
+
+function updateMainChrono() {
+  const min = String(Math.floor(mainTime / 60)).padStart(2, '0');
+  const sec = String(mainTime % 60).padStart(2, '0');
+  document.getElementById("main-chrono").innerText = `${min}:${sec}`;
+}
+function tickMain() {
+  if (mainRunning) {
+    mainTime++;
+    updateMainChrono();
+  }
+}
+function toggleMainChrono() {
+  mainRunning = !mainRunning;
+  if (!mainInterval) mainInterval = setInterval(tickMain, 1000);
+}
+function useTME(team) {
+  if (tmeCount[team] >= 3) return;
+  tmeCount[team]++;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.player-card').forEach(card => {
+    card.addEventListener('click', () => {
+      if (selectedPlayer) selectedPlayer.classList.remove('selected');
+      selectedPlayer = card;
+      selectedPlayer.classList.add('selected');
+    });
+  });
+
+  document.querySelectorAll('.sanction.deuxmin').forEach(elem => {
+    elem.addEventListener('click', () => {
+      const card = elem.closest('.player-card');
+      const actives = card.querySelectorAll('.sanction.deuxmin.active');
+      if (actives.length >= 3 || elem.classList.contains('active')) return;
+      elem.classList.add('active');
+      elem.style.outline = "2px solid black";
+
+      const chrono = card.querySelector('.chrono2min');
+      if (chrono && chrono.style.display !== 'inline') {
+        chrono.style.display = 'inline';
+        let duration = 120;
+        chrono.textContent = "2:00";
+        const interval = setInterval(() => {
+          duration--;
+          const min = Math.floor(duration / 60);
+          const sec = String(duration % 60).padStart(2, '0');
+          chrono.textContent = `${min}:${sec}`;
+          if (duration <= 0) {
+            clearInterval(interval);
+            chrono.style.display = "none";
+          }
+        }, 1000);
+      }
+
+      setTimeout(() => {
+        const activeCount = card.querySelectorAll('.sanction.deuxmin.active').length;
+        if (activeCount === 3) {
+          card.classList.add('disabled');
+        }
+      }, 100);
+    });
+  });
+
+  document.querySelectorAll('.sanction.jaune, .sanction.rouge, .sanction.bleu').forEach(elem => {
+    elem.addEventListener('click', () => {
+      elem.classList.toggle('active');
+      elem.style.outline = elem.classList.contains('active') ? "2px solid black" : "none";
+    });
+  });
+});
+
+function getSelectedPlayerInfo() {
+  if (!selectedPlayer) return { num: "", name: "", team: "" };
+  const parts = selectedPlayer.innerText.split('\n');
+  const num = parts[0].trim();
+  const name = parts[1]?.trim() || '';
+  const team = selectedPlayer.closest('#teamA') ? 'A' : (selectedPlayer.closest('#teamB') ? 'B' : '');
+  return { num, name, team };
+}
+
+function logAction(action) {
+  const historique = document.getElementById("historique");
+  const min = String(Math.floor(mainTime / 60)).padStart(2, '0');
+  const sec = String(mainTime % 60).padStart(2, '0');
+  const time = `${min}:${sec}`;
+  const info = getSelectedPlayerInfo();
+  const line = document.createElement("div");
+
+  line.textContent = `[${time}] ACTION : ${action}${info.num ? ' | JOUEUR : ' + info.num + ' ' + info.name + ' | ÉQUIPE : ' + info.team : ''}`;
+  line.onclick = () => line.remove();
+  historique.prepend(line);
+  lastAction = line;
+
+  if (action === 'BUT' && selectedPlayer) {
+    const butsTag = selectedPlayer.querySelector('.buts');
+    if (butsTag) {
+      const current = parseInt(butsTag.textContent.split(":")[1]) || 0;
+      butsTag.textContent = `Buts : ${current + 1}`;
+    }
+    const teamScore = document.getElementById("score" + info.team);
+    if (teamScore) {
+      const newScore = parseInt(teamScore.textContent) + 1;
+      teamScore.textContent = newScore;
+    }
+  }
+}
+
+function undoLastAction() {
+  if (lastAction) {
+    lastAction.remove();
+    lastAction = null;
+  }
+}
+
+updateMainChrono();
+</script>
+</body>
+</html>
